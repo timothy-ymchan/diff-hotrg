@@ -3,6 +3,20 @@ import torch
 from opt_einsum import contract
 from scipy.integrate import quad
 import numpy as np
+import scipy
+
+def gauss_legendre(func,a,b,n=100,args=()):
+    # Basically a reimplementation of scipy fixed_quad
+    # Note that the default dtype should be float64, or numerical precision issues WILL occur
+    device = torch.get_default_device()
+
+    x,w = scipy.integrate._quadrature._cached_roots_legendre(n)
+    x = torch.from_numpy(x).to(device)
+    w = torch.from_numpy(w).to(device)
+
+    y = (b-a)*(x+1)/2.0 + a
+    I =  (0.5*(b-a)*torch.sum(w*func(y,*args)))
+    return I
 
 class Ising2D(AbstractModel):
   N0 = 1
@@ -40,11 +54,12 @@ class Ising2D(AbstractModel):
     return contract("abcd,ai,bj,ck,dl->ijkl",delta,M,M,M,M)
 
   def get_lnZ(self)->torch.Tensor:
-    T = self.temp.to('cpu').detach().item() # as floating point number, and since we are using scipy, copy everything to cpu
+    T = self.temp
     beta = 1/T
-    k = 1/(np.sinh(2*beta))**2
-    func = lambda theta: np.log(np.cosh(2*beta)**2 + (1/k)*np.sqrt(1+k**2-2*k*np.cos(theta)))
-    return torch.Tensor([0.5*np.log(2) + (quad(func,0,np.pi))[0]/(2*np.pi)]).to(self.device)
+    k = 1/(torch.sinh(2*beta))**2
+    func = lambda theta: torch.log(torch.cosh(2*beta)**2 + (1/k)*torch.sqrt(1+k**2-2*k*torch.cos(theta)))
+    const = torch.from_numpy(np.array([0.5*np.log(2)])).to(self.device)
+    return const + (gauss_legendre(func,0,torch.pi,n=200))/(2*torch.pi)
 
   def get_mag(self)->torch.Tensor:
     temp = self.temp.detach() # Better not include this in computational graph

@@ -4,7 +4,7 @@ from models import AbstractModel
 from svd import SVD
 
 
-svd = SVD.apply
+svd = torch.svd_lowrank#SVD.apply
 
 def merge_tensor(T1:torch.Tensor,T2:torch.Tensor,direction:str)->torch.Tensor:
   # Assume input tensor of the form urdl (efgh), assume bo
@@ -24,8 +24,8 @@ def get_isometry(T:torch.Tensor, merge_direction:str, max_dim:int ) -> torch.Ten
   along = {"X":"urdl,erdl->ue","Y":"urdl,urdh->lh"} 
   M:torch.Tensor = contract(along[merge_direction],T,torch.conj(T))
   #print('M',M.size())
-  U,S,Vh = svd(M) # U.shape = (bond dim, svd rank)
-  isom = U[:,:max_dim].T
+  U,S,Vh = svd(M,q=max_dim) # U.shape = (bond dim, svd rank)
+  isom = (U[:,:max_dim].T)
   return isom
 
 

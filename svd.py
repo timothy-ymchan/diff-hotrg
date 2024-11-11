@@ -13,6 +13,7 @@ class SVD(torch.autograd.Function):
     @staticmethod
     def forward(self, A):
         U, S, V = torch.svd(A)
+        S += 1e-34 # Prevent zero entries (Let's see how it goes)
         self.save_for_backward(U, S, V)
         return U, S, V
 
@@ -24,8 +25,7 @@ class SVD(torch.autograd.Function):
         M = U.size(0)
         N = V.size(0)
         NS = len(S)
-        #print('NS',NS)
-        S += 1e-34 # Prevent zero entries (Let's see how it goes)
+        print('NS',NS)
 
         F = (S - S[:, None])
         F = safe_inverse(F)

@@ -37,7 +37,10 @@ class HOTRG:
       lnZ = self.scale*lnZ + torch.log(self._maxT[i])
     lnZ += torch.log(self._traceT[iter])
     if per_site:
-      return lnZ/self.Nsizes[iter] # Free energy per spin
+      for i in range(iter):
+         lnZ /= self.scale
+      return lnZ
+      #return lnZ/self.Nsizes[iter] # Free energy per spin
     return lnZ
 
   def observable(self,name,iter=-1):
