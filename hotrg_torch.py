@@ -4,7 +4,7 @@ from models import AbstractModel
 from svd import SVD
 
 
-svd = torch.svd_lowrank#SVD.apply
+svd = SVD.apply
 
 def merge_tensor(T1:torch.Tensor,T2:torch.Tensor,direction:str)->torch.Tensor:
   # Assume input tensor of the form urdl (efgh), assume bo
@@ -24,7 +24,7 @@ def get_isometry(T:torch.Tensor, merge_direction:str, max_dim:int ) -> torch.Ten
   along = {"X":"urdl,erdl->ue","Y":"urdl,urdh->lh"} 
   M:torch.Tensor = contract(along[merge_direction],T,torch.conj(T))
   #print('M',M.size())
-  U,S,Vh = svd(M,q=max_dim) # U.shape = (bond dim, svd rank)
+  U,S,Vh = svd(M) # U.shape = (bond dim, svd rank)
   isom = (U[:,:max_dim].T)
   return isom
 
@@ -75,7 +75,7 @@ class HOTRG:
       if verbose and i % self.n_log == 0:
         lnZ_RG = self.get_lnZ()
         lnZ_Th = self.model.get_lnZ()
-        print('Iteration: ', i, 'RG lnZ: ',lnZ_RG,'Theory lnZ: ',lnZ_Th, r'% Error: ', 100*torch.abs(lnZ_Th-lnZ_RG)/lnZ_RG)
+        print('Iteration: ', i, f'Size {self.Nsizes[-1]:.3e}','RG lnZ: ',lnZ_RG.item(),'Theory lnZ: ',lnZ_Th.item(), f'Error: {(torch.abs(lnZ_Th-lnZ_RG)/lnZ_RG).item():.4e}')
     
     print('Completed ',niter,' iterations of renormalization')
     print(f'Saving output to {self.default_ckpt}...')
@@ -85,7 +85,14 @@ class HOTRG:
     assert iter <= self.iter, "iter out of range"
     if iter == -1:
       iter = self.iter
-    lnZ = 0
+    lnZ = torch.log(self._traceT[iter])
+    for i in range(iter):
+      lnZ = (lnZ + torch.log(self._maxT[iter-1-i]))/self.scale
+    lnZ /= self.Nsizes[0]
+    return lnZ
+  
+    """
+    # Probably too unstable numerically. Better to compute per site lnZ directly
     for i in range(iter):
       lnZ = self.scale*lnZ + torch.log(self._maxT[i])
     lnZ += torch.log(self._traceT[iter])
@@ -93,17 +100,20 @@ class HOTRG:
       size = torch.Tensor([self.Nsizes[iter]]).to(self.device)
       lnZ = lnZ/size # Free energy per spin
     return lnZ
+    """
   
   def _renormalize(self):
     T = self.T[-1]
     chi_max = self.chi_max
     direction = self.sweep_cycle[self.iter % len(self.sweep_cycle)]
     TT = merge_tensor(T,T,direction)
+    #print(TT.size())
     isom = get_isometry(TT,direction,self.chi_max) # legs (chi_new, chi0)
 
     # Apply truncation
     trunc_along = {"X":"ua,arbl,db->urdl","Y":"la,ubda,rb->urdl"} # direction means merge direction
     T_new:torch.Tensor = contract(trunc_along[direction],isom,TT,torch.conj(isom))
+    #print(T_new.size())
 
     # Rescaling
     T_max = torch.max(torch.abs(T_new))

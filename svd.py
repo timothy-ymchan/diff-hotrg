@@ -25,7 +25,7 @@ class SVD(torch.autograd.Function):
         M = U.size(0)
         N = V.size(0)
         NS = len(S)
-        print('NS',NS)
+        #print('NS',NS)
 
         F = (S - S[:, None])
         F = safe_inverse(F)
@@ -38,7 +38,7 @@ class SVD(torch.autograd.Function):
         #print('S min?',S.abs().min())
         G.diagonal().fill_(np.inf)
         G = 1/G 
-        #print('G nan?', G.isnan().any())
+        #print('G nan? G zero? G max?', G.isnan().any(),G.min(),G.max())
 
         UdU = Ut @ dU
         VdV = Vt @ dV
@@ -75,4 +75,5 @@ class SVD(torch.autograd.Function):
             dA = dA + (torch.eye(M, dtype=dU.dtype, device=dU.device) - U@Ut) @ (dU/S) @ Vt 
         if (N>NS):
             dA = dA + (U/S) @ dV.t() @ (torch.eye(N, dtype=dU.dtype, device=dU.device) - V@Vt)
+        #print('Get dA successfully! ',NS)
         return dA
