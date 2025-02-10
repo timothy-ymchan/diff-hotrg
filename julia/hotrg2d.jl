@@ -29,6 +29,21 @@ function next_layer(layers::RG_layers{HOTRG2D_layer})
     return 2, HOTRG2D_layer(T_new/T_norm,T_norm,trunc_along,U)
 end
 
+function HOTRG2D_renormalize_next(T::TensorMap,χ::Int,trunc_along::Symbol)
+    T_new, U = HOTRG_2D_trunc(T,χ,trunc_along)
+    T_norm = norm(T_new)
+    return 2, T_new/T_norm,T_norm,trunc_along,U
+end
+
+function HOTRG2D_renormalize(;T::TensorMap,χ::Int,steps::Int,size::Int=1,logging::Bool=false)
+    !logging || throw("Did not implement logging")
+    for i in range(1,steps)
+        trunc_along = (i % 2 == 0) ? :x : :y
+        _,T,_,_,_ = HOTRG2D_renormalize_next(T,χ,trunc_along)
+    end
+    return T 
+end
+
 function get_trace(layers::RG_layers{HOTRG2D_layer},n::Int)
     T = (n == 0) ? layers.T0 : layers.layers[n].T 
     @tensor TrT = T[i,j,i,j]

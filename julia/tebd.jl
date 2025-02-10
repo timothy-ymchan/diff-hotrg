@@ -38,6 +38,21 @@ function Gu_ITEBD_Step(U,χ)
     return LbRbTaTbRaLa
 end
 
+function Gu_ITEBD_Step_Trunc_First(U,χ)
+    Ta,Tb = SVD_factorize(U,(1,3),(2,4),truncdim(χ))
+    @tensor Ω1[i,j,k,l] := Ta[i,m,j]*Tb[l,m,k]
+    @tensor Ω2[i,j,k,l] := Tb[l,i,m]*Ta[m,k,j]
+    La,Lb = SVD_factorize(Ω1,(1,4),(2,3),truncdim(χ)) # (i,l,σ), (σ,j,k)
+    Ra,Rb = SVD_factorize(Ω2,(1,2),(3,4),truncdim(χ)) # (i,j,σ), (σ, k,l)
+    #@tensor begin
+    @tensor LbRb[i,j,m,n] := Lb[i,jj,n]*Rb[j,m,jj]
+    @tensor LbRbTaTb[i,j,o,p] := LbRb[i,j,m,n]*U[n,m,o,p]
+    @tensor RaLa[o,p,k,l] := Ra[o,jj,l]*La[p,jj,k]
+    @tensor LbRbTaTbRaLa[i,j,l,k] := LbRbTaTb[i,j,o,p]*RaLa[o,p,k,l]
+    #end
+    return LbRbTaTbRaLa
+end
+
 function Σ_Spectrum(T::TensorMap,legs1,legs2,sector=Trivial(),num_Σ=5)
     _,Σ,_,_ = tsvd(T,legs1,legs2)
     mat = block(Σ,Trivial())
